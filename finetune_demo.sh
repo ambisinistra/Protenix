@@ -13,9 +13,9 @@
 # limitations under the License.
 
 export LAYERNORM_TYPE=fast_layernorm
-export USE_DEEPSPEED_EVO_ATTENTION=true
+export USE_DEEPSPEED_EVO_ATTENTION=false
 # wget -P /af3-dev/release_model/ https://af3-dev.tos-cn-beijing.volces.com/release_model/model_v0.2.0.pt
-checkpoint_path="/af3-dev/release_model/model_v0.2.0.pt"
+checkpoint_path="/kaggle/input/protenix-weights/checkpoint/model_v0.2.0.pt"
 
 python3 ./runner/train.py \
 --run_name protenix_finetune \
@@ -36,6 +36,6 @@ python3 ./runner/train.py \
 --sample_diffusion.N_step 20 \
 --load_checkpoint_path ${checkpoint_path} \
 --load_ema_checkpoint_path ${checkpoint_path} \
---data.train_sets weightedPDB_before2109_wopb_nometalc_0925 \
---data.weightedPDB_before2109_wopb_nometalc_0925.base_info.pdb_list examples/finetune_subset.txt \
---data.test_sets recentPDB_1536_sample384_0925,posebusters_0925
+--data.train_sets custom \
+#--data.weightedPDB_before2109_wopb_nometalc_0925.base_info.pdb_list examples/finetune_subset.txt \
+#--data.test_sets recentPDB_1536_sample384_0925,posebusters_0925
