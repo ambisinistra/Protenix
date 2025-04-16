@@ -127,7 +127,7 @@ data_configs = {
     "custom":
     {
         "base_info": {
-            "mmcif_dir" : os.path.join(DATA_ROOT_DIR, "mmgif"),
+            "mmcif_dir" : os.path.join(DATA_ROOT_DIR, "mmcif"),
             "bioassembly_dict_dir" : os.path.join(DATA_ROOT_DIR, "mmcif_bioassembly"),
             "indices_fpath" : os.path.join(DATA_ROOT_DIR, "indices/output_indices.csv"),
             "pdb_list" : "",
