@@ -60,7 +60,8 @@ default_weighted_pdb_configs = {
     "shuffle_sym_ids": GlobalConfigValue("train_shuffle_sym_ids"),
 }
 
-DATA_ROOT_DIR = os.environ.get("PROTENIX_DATA_ROOT_DIR", "/af3-dev/release_data/")
+#DATA_ROOT_DIR = os.environ.get("PROTENIX_DATA_ROOT_DIR", "release_data/")
+DATA_ROOT_DIR = os.environ.get("PROTENIX_DATA_ROOT_DIR", "/kaggle/input/dummy-protenix-dataset/release_data_custom_v0")
 
 # Use CCD cache created by scripts/gen_ccd_cache.py priority. (without date in filename)
 # See: docs/prepare_data.md
@@ -117,12 +118,25 @@ data_configs = {
     "epoch_size": 10000,
     "train_ref_pos_augment": True,
     "test_ref_pos_augment": True,
-    "train_sets": ListValue(["weightedPDB_before2109_wopb_nometalc_0925"]),
+    "train_sets": ListValue(["custom"]),
     "train_sampler": {
         "train_sample_weights": ListValue([1.0]),
         "sampler_type": "weighted",
     },
-    "test_sets": ListValue(["recentPDB_1536_sample384_0925"]),
+    "test_sets": ListValue(["custom"]),
+    "custom":
+    {
+        "base_info": {
+            "mmcif_dir" : os.path.join(DATA_ROOT_DIR, "mmgif"),
+            "bioassembly_dict_dir" : os.path.join(DATA_ROOT_DIR, "mmcif_bioassembly"),
+            "indices_fpath" : os.path.join(DATA_ROOT_DIR, "indices/output_indices.csv"),
+            "pdb_list" : "",
+            "random_sample_if_failed" : True,
+            "use_reference_chains_only" : False,
+        },
+        **deepcopy(default_weighted_pdb_configs),
+    },
+
     "weightedPDB_before2109_wopb_nometalc_0925": {
         "base_info": {
             "mmcif_dir": os.path.join(DATA_ROOT_DIR, "mmcif"),
@@ -179,7 +193,7 @@ data_configs = {
         **deepcopy(default_test_configs),
     },
     "msa": {
-        "enable": True,
+        "enable": False,
         "enable_rna_msa": False,
         "prot": {
             "pairing_db": "uniref100",
