@@ -18,6 +18,8 @@ import os
 import time
 from contextlib import nullcontext
 
+print(f"PYTHONPATH в скрипте: {os.environ.get('PYTHONPATH')}")
+
 import torch
 import torch.distributed as dist
 import wandb
