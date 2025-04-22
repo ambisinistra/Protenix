@@ -298,11 +298,11 @@ class BaseSingleDataset(Dataset):
         """
         # Try at most 10 times
         for _ in range(10):
-            print (_)
-            try:
+            #try:
+            if True:
                 data = self.process_one(idx)
                 return data
-            except Exception as e:
+            """except Exception as e:
                 error_message = f"{e} at idx {idx}:\n{traceback.format_exc()}"
                 logging.info(f"{idx} {error_message}")
                 self.save_error_data(idx, error_message)
@@ -313,7 +313,7 @@ class BaseSingleDataset(Dataset):
                     idx = random.choice(range(len(self.indices_list)))
                     continue
                 else:
-                    raise Exception(e)
+                    raise Exception(e)"""
         return data
 
     def _get_bioassembly_data(
