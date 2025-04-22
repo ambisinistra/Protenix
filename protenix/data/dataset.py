@@ -20,6 +20,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
+import logging
+
 import numpy as np
 import pandas as pd
 import torch
@@ -302,6 +304,7 @@ class BaseSingleDataset(Dataset):
                 return data
             except Exception as e:
                 error_message = f"{e} at idx {idx}:\n{traceback.format_exc()}"
+                logging.info(f"{idx} {error_message}")
                 self.save_error_data(idx, error_message)
 
                 if self.random_sample_if_failed:
