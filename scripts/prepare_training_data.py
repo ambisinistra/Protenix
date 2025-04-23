@@ -118,6 +118,7 @@ def run_gen_data(
     cluster_file: Optional[Path],
     distillation: bool = False,
     num_workers: int = 1,
+    exclude_names: str = ""
 ):
     """
     Generates data from MMCIF files and saves the output to specified locations.
@@ -129,6 +130,7 @@ def run_gen_data(
         cluster_file (Optional[str]): Path to the cluster file, if any.
         distillation (bool, optional): Flag indicating whether to use the 'Distillation' setting. Defaults to False.
         num_workers (int, optional): Number of worker processes to use. Defaults to 1.
+        exclude_names (str, optional): Filenames divided by spaces marked to not be processed
 
     Raises:
         NotImplementedError: If the input path is not a directory or a text file.
@@ -142,9 +144,11 @@ def run_gen_data(
     output_indices_csv.parent.mkdir(parents=True, exist_ok=True)
     bioassembly_output_dir.mkdir(parents=True, exist_ok=True)
 
+    exclude_names = set(exclude_names.split(" "))
+
     if input_path.is_dir():
         mmcif_list = list(input_path.glob("*.cif")) + list(input_path.glob("*.cif.gz"))
-        mmcif_list = sorted(mmcif_list)
+        mmcif_list = sorted([filename for filename in mmcif_list if filename not in exclude_names])
     elif input_path.suffix == ".txt":
         with open(input_path) as f:
             mmcif_list = [i.strip() for i in f.readlines()]
@@ -207,6 +211,14 @@ if __name__ == "__main__":
         help="Number of worker processes to use. Defaults to 1.",
     )
 
+    parser.add_argument(
+        "-x",
+        "--exclude_names",
+        type=str,
+        default="",
+        help="filenames to exclude (divided by space)"
+    )
+
     args = parser.parse_args()
 
     run_gen_data(
@@ -216,4 +228,5 @@ if __name__ == "__main__":
         cluster_file=args.cluster_file,
         distillation=args.distillation,
         num_workers=args.n_cpu,
+        exclude_names=args.exclude_names
     )
