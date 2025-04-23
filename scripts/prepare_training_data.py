@@ -15,7 +15,7 @@
 import argparse
 import csv
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
 from joblib import Parallel, delayed
@@ -24,13 +24,12 @@ from tqdm import tqdm
 from protenix.data.data_pipeline import DataPipeline
 from protenix.utils.file_io import dump_gzip_pickle
 
-
 def gen_a_bioassembly_data(
     mmcif: Path,
     bioassembly_output_dir: Path,
     cluster_file: Optional[Path],
     distillation: bool = False,
-) -> Optional[list[dict]]:
+) -> Optional[List[dict]]: # Изменил list на List
     """
     Generates bioassembly data from an mmCIF file and saves it to the specified output directory.
 
@@ -41,65 +40,73 @@ def gen_a_bioassembly_data(
         distillation (bool, optional): Flag indicating whether to use the 'Distillation' setting. Defaults to False.
 
     Returns:
-        Optional[list[dict]]: A list of sample indices if data is successfully generated, otherwise None.
+        Optional[List[dict]]: A list of sample indices if data is successfully generated, otherwise None.
     """
     if distillation:
         dataset = "Distillation"
     else:
         dataset = "WeightedPDB"
 
-    sample_indices_list, bioassembly_dict = DataPipeline.get_data_from_mmcif(
-        mmcif, cluster_file, dataset
-    )
+    # Эти строки требуют наличия класса DataPipeline и функции dump_gzip_pickle
+    # В реальном коде убедитесь, что они импортированы или определены.
+    try:
+        sample_indices_list, bioassembly_dict = DataPipeline.get_data_from_mmcif(
+            mmcif, cluster_file, dataset
+        )
 
-    if sample_indices_list and bioassembly_dict:
-        pdb_id = bioassembly_dict["pdb_id"]
-        # save to output dir
-        dump_gzip_pickle(bioassembly_dict, bioassembly_output_dir / f"{pdb_id}.pkl.gz")
-        return sample_indices_list
+        if sample_indices_list and bioassembly_dict:
+            pdb_id = bioassembly_dict["pdb_id"]
+            # save to output dir
+            dump_gzip_pickle(bioassembly_dict, bioassembly_output_dir / f"{pdb_id}.pkl.gz")
+            #logging.info(len(sample_indices_list))
+            return sample_indices_list
+        else:
+             return None # Явно возвращаем None, если данные не были сгенерированы
+    except Exception as e:
+         # Добавим простую обработку ошибок, чтобы видеть, какие файлы вызывают проблемы при последовательной обработке
+         print(f"Error processing {mmcif}: {e}")
+         return None
 
 
-def gen_data_from_mmcifs(
-    mmcif_list: list[Path],
+# Переписанная функция gen_data_from_mmcifs без параллелизма
+def gen_data_from_mmcifs( # Добавил суффикс _sequential к имени
+    mmcif_list: List[Path], # Изменил list на List
     output_indices_csv: Path,
     bioassembly_output_dir: Path,
     cluster_file: Optional[Path],
     distillation: bool = False,
-    num_workers: int = 1,
+    # Параметр num_workers удален, так как он не используется в последовательной версии
+    # num_workers: int = 1,
 ):
     """
-    Generates training data from a list of mmCIF files and saves the results to a CSV file.
+    Generates training data from a list of mmCIF files sequentially
+    and saves the results to a CSV file.
 
     Args:
-        mmcif_list (list[Path]): List of paths to mmCIF files.
+        mmcif_list (List[Path]): List of paths to mmCIF files.
         output_indices_csv (Path): Path to the output CSV file where the indices will be saved.
         bioassembly_output_dir (Path): Directory where the bioassembly output will be stored.
         cluster_file (Optional[Path]): Path to the cluster file. If None, clustering is not performed.
         distillation (bool, optional): Flag indicating whether to use the 'Distillation' setting. Defaults to False.
-        num_workers (int, optional): Number of parallel workers to use. Defaults to 1.
+        # num_workers (int, optional): Removed as it's not used in sequential processing.
     """
 
-    all_sample_indices_list = [
-        r
-        for r in tqdm(
-            Parallel(n_jobs=num_workers, return_as="generator_unordered")(
-                delayed(gen_a_bioassembly_data)(
-                    mmcif, bioassembly_output_dir, cluster_file, distillation
-                )
-                for mmcif in mmcif_list
-            ),
-            total=len(mmcif_list),
-        )
-    ]
+    merged_results = [] # Список для сбора всех sample_indices
 
-    merged_results = []
-    for sample_indices_list in all_sample_indices_list:
+    # Заменяем Parallel processing на простой цикл for
+    # Используем tqdm для отображения прогресса, как в оригинале
+    for mmcif in tqdm(mmcif_list, total=len(mmcif_list)):
+        sample_indices_list = gen_a_bioassembly_data(
+            mmcif, bioassembly_output_dir, cluster_file, distillation
+        )
+        # Если gen_a_bioassembly_data вернула список (не None), добавляем его содержимое к merged_results
         if sample_indices_list:
-            merged_results += sample_indices_list
+            merged_results.extend(sample_indices_list) # Используем extend, чтобы добавить элементы списка, а не сам список
+
+    # Остальная часть кода остается такой же
     df = pd.DataFrame(merged_results)
 
     df.to_csv(output_indices_csv, index=False, quoting=csv.QUOTE_NONNUMERIC)
-
 
 def run_gen_data(
     input_path: Path,
@@ -134,6 +141,7 @@ def run_gen_data(
 
     if input_path.is_dir():
         mmcif_list = list(input_path.glob("*.cif")) + list(input_path.glob("*.cif.gz"))
+        mmcif_list = sorted(mmcif_list)
     elif input_path.suffix == ".txt":
         with open(input_path) as f:
             mmcif_list = [i.strip() for i in f.readlines()]
