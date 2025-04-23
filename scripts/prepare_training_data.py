@@ -15,7 +15,7 @@
 import argparse
 import csv
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
 from joblib import Parallel, delayed
@@ -30,7 +30,7 @@ def gen_a_bioassembly_data(
     bioassembly_output_dir: Path,
     cluster_file: Optional[Path],
     distillation: bool = False,
-) -> Optional[list[dict]]:
+) -> Optional[List[dict]]: # Изменил list на List
     """
     Generates bioassembly data from an mmCIF file and saves it to the specified output directory.
 
@@ -41,22 +41,32 @@ def gen_a_bioassembly_data(
         distillation (bool, optional): Flag indicating whether to use the 'Distillation' setting. Defaults to False.
 
     Returns:
-        Optional[list[dict]]: A list of sample indices if data is successfully generated, otherwise None.
+        Optional[List[dict]]: A list of sample indices if data is successfully generated, otherwise None.
     """
     if distillation:
         dataset = "Distillation"
     else:
         dataset = "WeightedPDB"
 
-    sample_indices_list, bioassembly_dict = DataPipeline.get_data_from_mmcif(
-        mmcif, cluster_file, dataset
-    )
+    # Эти строки требуют наличия класса DataPipeline и функции dump_gzip_pickle
+    # В реальном коде убедитесь, что они импортированы или определены.
+    try:
+        sample_indices_list, bioassembly_dict = DataPipeline.get_data_from_mmcif(
+            mmcif, cluster_file, dataset
+        )
 
-    if sample_indices_list and bioassembly_dict:
-        pdb_id = bioassembly_dict["pdb_id"]
-        # save to output dir
-        dump_gzip_pickle(bioassembly_dict, bioassembly_output_dir / f"{pdb_id}.pkl.gz")
-        return sample_indices_list
+        if sample_indices_list and bioassembly_dict:
+            pdb_id = bioassembly_dict["pdb_id"]
+            # save to output dir
+            dump_gzip_pickle(bioassembly_dict, bioassembly_output_dir / f"{pdb_id}.pkl.gz")
+            #logging.info(len(sample_indices_list))
+            return sample_indices_list
+        else:
+             return None # Явно возвращаем None, если данные не были сгенерированы
+    except Exception as e:
+         # Добавим простую обработку ошибок, чтобы видеть, какие файлы вызывают проблемы при последовательной обработке
+         print(f"Error processing {mmcif}: {e}")
+         return None
 
 
 def gen_data_from_mmcifs(
@@ -134,6 +144,7 @@ def run_gen_data(
 
     if input_path.is_dir():
         mmcif_list = list(input_path.glob("*.cif")) + list(input_path.glob("*.cif.gz"))
+        mmcif_list = sorted(mmcif_list)
     elif input_path.suffix == ".txt":
         with open(input_path) as f:
             mmcif_list = [i.strip() for i in f.readlines()]
