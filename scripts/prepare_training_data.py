@@ -148,7 +148,7 @@ def run_gen_data(
 
     if input_path.is_dir():
         mmcif_list = list(input_path.glob("*.cif")) + list(input_path.glob("*.cif.gz"))
-        mmcif_list = sorted([filename for filename in mmcif_list if filename not in exclude_names])
+        mmcif_list = sorted([filename for filename in mmcif_list if filename.name not in exclude_names])
     elif input_path.suffix == ".txt":
         with open(input_path) as f:
             mmcif_list = [i.strip() for i in f.readlines()]
