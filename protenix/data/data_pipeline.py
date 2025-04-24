@@ -57,7 +57,7 @@ class DataPipeline(object):
                 sample_indices_list (list[dict[str, Any]]): The sample indices list (each one is a chain or an interface).
                 bioassembly_dict (dict[str, Any]): The bioassembly dict with sequence, atom_array, and token_array.
         """
-        try:
+        if True:
             if dataset == "WeightedPDB":
                 parser = MMCIFParser(mmcif_file=mmcif)
                 bioassembly_dict = parser.get_bioassembly()
@@ -89,9 +89,9 @@ class DataPipeline(object):
             bioassembly_dict["token_array"] = token_array
             return sample_indices_list, bioassembly_dict
 
-        except Exception as e:
-            logging.warning("Gen data failed for %s due to %s", mmcif, e)
-            return [], {}
+        #except Exception as e:
+        #    logging.warning("Gen data failed for %s due to %s", mmcif, e)
+        #    return [], {}
 
     @staticmethod
     def get_label_entity_id_to_asym_id_int(atom_array: AtomArray) -> dict[str, int]:
