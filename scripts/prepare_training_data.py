@@ -108,7 +108,9 @@ def run_gen_data(
     cluster_file: Optional[Path],
     distillation: bool = False,
     num_workers: int = 1,
-    exclude_names: str = ""
+    exclude_names: str = "",
+    from_index: int = 0,
+    to_index: int = None,
 ):
     """
     Generates data from MMCIF files and saves the output to specified locations.
@@ -139,6 +141,10 @@ def run_gen_data(
     if input_path.is_dir():
         mmcif_list = list(input_path.glob("*.cif")) + list(input_path.glob("*.cif.gz"))
         mmcif_list = sorted([filename for filename in mmcif_list if filename.name not in exclude_names])
+        if to_index:
+            mmcif_list = mmcif_list[from_index:to_index]
+        else:
+            mmcif_list = mmcif_list[from_index:]
     elif input_path.suffix == ".txt":
         with open(input_path) as f:
             mmcif_list = [i.strip() for i in f.readlines()]
@@ -209,6 +215,22 @@ if __name__ == "__main__":
         help="filenames to exclude (divided by space)"
     )
 
+    parser.add_argument(
+        "-f",
+        "--from_index",
+        type=int,
+        default=0,
+        help="Index number to starts with"
+    )
+
+    parser.add_argument(
+        "-t",
+        "--to_index",
+        type=int,
+        default=None,
+        help="Index number to ends with"
+    )
+
     args = parser.parse_args()
 
     run_gen_data(
@@ -218,5 +240,7 @@ if __name__ == "__main__":
         cluster_file=args.cluster_file,
         distillation=args.distillation,
         num_workers=args.n_cpu,
-        exclude_names=args.exclude_names
+        exclude_names=args.exclude_names,
+        from_index=args.from_index,
+        to_index=args.to_index,
     )
