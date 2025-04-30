@@ -153,6 +153,15 @@ class AF3Trainer(object):
 
     def init_model(self):
         self.raw_model = Protenix(self.configs).to(self.device)
+
+        # Заморозить все параметры
+        for param in self.raw_model.parameters():
+            param.requires_grad = False
+
+        # Разморозить параметры diffusion_module
+        for param in self.raw_model.diffusion_module.parameters():
+            param.requires_grad = True
+
         self.use_ddp = False
         if DIST_WRAPPER.world_size > 1:
             self.print(f"Using DDP")
