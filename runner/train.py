@@ -152,17 +152,19 @@ class AF3Trainer(object):
     def init_model(self):
         self.raw_model = Protenix(self.configs).to(self.device)
 
+        print (self.raw_model)
+
         # Заморозить все параметры
         print ("Freeze layers")
         for i, param in enumerate(self.raw_model.parameters()):
-            print (i, param)
             param.requires_grad = False
+            print (i, param.shape, param.requires_grad)
 
         # Разморозить параметры diffusion_module
         print ("unfreeze layers")
         for i, param in enumerate(self.raw_model.diffusion_module.parameters()):
-            print (i, param)
             param.requires_grad = True
+            print (i, param.shape, param.requires_grad)
 
         self.use_ddp = False
         if DIST_WRAPPER.world_size > 1:
