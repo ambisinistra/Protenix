@@ -296,7 +296,6 @@ class BaseSingleDataset(Dataset):
         """
         # Try at most 10 times
         for _ in range(10):
-            print (_)
             try:
                 data = self.process_one(idx)
                 return data
