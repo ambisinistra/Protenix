@@ -18,8 +18,6 @@ import os
 import time
 from contextlib import nullcontext
 
-print(f"PYTHONPATH в скрипте: {os.environ.get('PYTHONPATH')}")
-
 import torch
 import torch.distributed as dist
 import wandb
@@ -155,11 +153,15 @@ class AF3Trainer(object):
         self.raw_model = Protenix(self.configs).to(self.device)
 
         # Заморозить все параметры
-        for param in self.raw_model.parameters():
+        print ("Freeze layers")
+        for i, param in enumerate(self.raw_model.parameters()):
+            print (i, param)
             param.requires_grad = False
 
         # Разморозить параметры diffusion_module
-        for param in self.raw_model.diffusion_module.parameters():
+        print ("unfreeze layers")
+        for i, param in enumerate(self.raw_model.diffusion_module.parameters()):
+            print (i, param)
             param.requires_grad = True
 
         self.use_ddp = False
