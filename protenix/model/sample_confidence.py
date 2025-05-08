@@ -508,7 +508,13 @@ def calculate_chain_based_ptm(
             if aid_1 > aid_2:
                 chain_pair_iptm[:, aid_1, aid_2] = chain_pair_iptm[:, aid_2, aid_1]
                 continue
-            pair_mask = asym_id_to_asym_mask[aid_1] + asym_id_to_asym_mask[aid_2]
+            try:
+                pair_mask = asym_id_to_asym_mask[aid_1] + asym_id_to_asym_mask[aid_2]
+            except Exception as e:
+                print(e)
+                print(aid_1, aid_2)
+                print(asym_id_to_asym_mask)
+                raise e
             chain_pair_iptm[:, aid_1, aid_2] = calculate_iptm(
                 pae_prob,
                 has_frame,
