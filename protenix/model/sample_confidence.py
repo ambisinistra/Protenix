@@ -455,7 +455,7 @@ def calculate_ptm(
 def calculate_chain_based_ptm(
     pae_prob: torch.Tensor,
     has_frame: torch.BoolTensor,
-    asym_id: torch.LongTensor,
+    asym_id: torch.LongTensor,        # Этот asym_id может быть не 0-индексированным/непрерывным
     token_is_ligand: torch.BoolTensor,
     min_bin: float,
     max_bin: float,
@@ -463,72 +463,77 @@ def calculate_chain_based_ptm(
 ) -> dict[str, torch.Tensor]:
     """
     Compute chain-based pTM scores.
-
-    Args:
-        pae_prob (torch.Tensor): Predicted probability from PAE loss head.
-            Shape: [..., N_token, N_token, N_bins]
-        has_frame (torch.BoolTensor): Indicator for tokens having a frame.
-            Shape: [N_token, ]
-        asym_id (torch.LongTensor): Asymmetric ID for tokens.
-            Shape: [N_token, ]
-        token_is_ligand (torch.BoolTensor): Indicator for tokens being ligands.
-            Shape: [N_token, ]
-        min_bin (float): Minimum bin value.
-        max_bin (float): Maximum bin value.
-        no_bins (int): Number of bins.
-
-    Returns:
-        dict: Dictionary containing chain-based pTM scores.
-            - chain_ptm (torch.Tensor): pTM scores for each chain.
-            - chain_iptm (torch.Tensor): ipTM scores for chain interface.
-            - chain_pair_iptm (torch.Tensor): Pairwise ipTM scores between chains.
-            - chain_pair_iptm_global (torch.Tensor): Global pairwise ipTM scores between chains.
     """
 
     has_frame = has_frame.bool()
-    asym_id = asym_id.long()
-    asym_id_to_asym_mask = {aid.item(): asym_id == aid for aid in torch.unique(asym_id)}
-    chain_is_ligand = {
-        aid.item(): token_is_ligand[asym_id == aid].sum() >= (asym_id == aid).sum() // 2
-        for aid in torch.unique(asym_id)
+    asym_id_original = asym_id.long() # Сохраняем оригинальные ID
+
+    # ----- НАЧАЛО ИСПРАВЛЕНИЯ -----
+    unique_original_asym_ids = torch.unique(asym_id_original)
+    # Создаем отображение из оригинальных ID в новые непрерывные ID 0, 1, ..., N_chain-1
+    # Это гарантирует, что asym_id_remapped будет содержать значения от 0 до N_chain-1
+    map_to_contiguous = {original_id.item(): i for i, original_id in enumerate(unique_original_asym_ids)}
+    asym_id_remapped = torch.tensor([map_to_contiguous[oid.item()] for oid in asym_id_original],
+                                    dtype=torch.long, device=asym_id_original.device)
+
+    # Теперь все asym_id_... будут использовать remapped ID
+    # Словарь asym_id_to_asym_mask будет использовать ключи 0, 1, ..., N_chain-1
+    asym_id_to_asym_mask = {
+        new_id: (asym_id_remapped == new_id) for new_id in map_to_contiguous.values()
     }
+    # ----- КОНЕЦ ИСПРАВЛЕНИЯ -----
+
+    # Определяем, является ли цепь (по новому, remapped ID) лигандом
+    chain_is_ligand = {}
+    for original_id, new_id in map_to_contiguous.items():
+        # Используем original_asym_id для проверки token_is_ligand, т.к. token_is_ligand соответствует оригинальным ID
+        original_mask = (asym_id_original == original_id)
+        chain_is_ligand[new_id] = token_is_ligand[original_mask].sum() >= (original_mask.sum() // 2)
+
 
     batch_shape = pae_prob.shape[:-3]
+    N_chain = len(asym_id_to_asym_mask) # Теперь это корректное количество цепей с индексами 0..N_chain-1
 
-    # Chain_pair_iptm
-    # Change to dense tensor, otherwise it's troublesome in break_down_to_per_sample_dict and traverse_and_aggregate across different devices
-    N_chain = len(asym_id_to_asym_mask)
-    chain_pair_iptm = torch.zeros(size=batch_shape + (N_chain, N_chain)).to(
-        pae_prob.device
-    )
-    for aid_1 in range(N_chain):
-        for aid_2 in range(N_chain):
+    chain_pair_iptm = torch.zeros(size=batch_shape + (N_chain, N_chain)).to(pae_prob.device)
+    for aid_1 in range(N_chain): # aid_1 теперь соответствует ключам в asym_id_to_asym_mask
+        for aid_2 in range(N_chain): # aid_2 теперь соответствует ключам в asym_id_to_asym_mask
             if aid_1 == aid_2:
                 continue
-            if aid_1 > aid_2:
-                chain_pair_iptm[:, aid_1, aid_2] = chain_pair_iptm[:, aid_2, aid_1]
+            if aid_1 > aid_2: # Это условие можно убрать, если ниже расчет симметричен, либо оставить для эффективности
+                chain_pair_iptm[..., aid_1, aid_2] = chain_pair_iptm[..., aid_2, aid_1]
                 continue
             try:
-                pair_mask = asym_id_to_asym_mask[aid_1] + asym_id_to_asym_mask[aid_2]
+                # Используем aid_1 и aid_2 напрямую, так как они теперь являются корректными ключами 0..N_chain-1
+                mask1 = asym_id_to_asym_mask[aid_1]
+                mask2 = asym_id_to_asym_mask[aid_2]
+                pair_mask = mask1 | mask2 # Логическое ИЛИ для масок
             except Exception as e:
-                print(e)
-                print(aid_1, aid_2)
-                print(asym_id_to_asym_mask)
+                print(f"Error creating pair_mask for remapped aids: {aid_1}, {aid_2}")
+                print("asym_id_to_asym_mask keys:", list(asym_id_to_asym_mask.keys()))
+                # Для отладки можно посмотреть и оригинальные ID
+                # original_aid_1 = [k for k,v in map_to_contiguous.items() if v == aid_1][0]
+                # original_aid_2 = [k for k,v in map_to_contiguous.items() if v == aid_2][0]
+                # print(f"Corresponds to original aids: {original_aid_1}, {original_aid_2}")
                 raise e
-            chain_pair_iptm[:, aid_1, aid_2] = calculate_iptm(
+
+            # При вызове calculate_iptm, ему нужно передать asym_id_remapped,
+            # если он внутри также ожидает ключи 0..N_chain-1 или использует их для создания масок
+            chain_pair_iptm[..., aid_1, aid_2] = calculate_iptm( # Убедитесь, что calculate_iptm тоже готов к remapped asym_id
                 pae_prob,
                 has_frame,
-                asym_id,
+                asym_id_remapped, # Передаем переназначенные ID
                 min_bin,
                 max_bin,
                 no_bins,
                 token_mask=pair_mask,
             )
+            if aid_1 < aid_2: # Для симметричного заполнения
+                 chain_pair_iptm[..., aid_2, aid_1] = chain_pair_iptm[..., aid_1, aid_2]
 
-    # chain_ptm
+
     chain_ptm = torch.zeros(size=batch_shape + (N_chain,)).to(pae_prob.device)
-    for aid, asym_mask in asym_id_to_asym_mask.items():
-        chain_ptm[:, aid] = calculate_ptm(
+    for aid, asym_mask in asym_id_to_asym_mask.items(): # aid здесь это 0..N_chain-1
+        chain_ptm[..., aid] = calculate_ptm(
             pae_prob,
             has_frame,
             min_bin,
@@ -537,39 +542,59 @@ def calculate_chain_based_ptm(
             token_mask=asym_mask,
         )
 
-    # Chain iptm
     chain_has_frame = [
-        (asym_id_to_asym_mask[i] * has_frame).any() for i in range(N_chain)
+        (asym_id_to_asym_mask[i] & has_frame).any() for i in range(N_chain) # Используем И (&)
     ]
 
     chain_iptm = torch.zeros(size=batch_shape + (N_chain,)).to(pae_prob.device)
-    for aid, asym_mask in asym_id_to_asym_mask.items():
-        pairs = [
-            (i, j)
-            for i in range(N_chain)
-            for j in range(N_chain)
-            if (i == aid or j == aid) and (i != j) and chain_has_frame[i]
-        ]
-        vals = [chain_pair_iptm[:, i, j] for (i, j) in pairs]
-        if len(vals) > 0:
-            chain_iptm[:, aid] = torch.stack(vals, dim=-1).mean(dim=-1)
+    for aid in range(N_chain): # aid здесь это 0..N_chain-1
+        # Собираем пары (i,j), где i или j равны aid, и i != j, и цепь i имеет frame
+        # Это означает, что мы рассматриваем интерфейсы цепи 'aid' с другими цепями 'k' (где k=i или k=j)
+        # и только если другая цепь 'k' имеет frame
+        vals = []
+        for k in range(N_chain):
+            if k == aid:
+                continue
+            if chain_has_frame[k]: # Проверяем, что другая цепь k имеет frame
+                                   # и сама цепь aid тоже должна иметь frame для осмысленного ipTM
+                if chain_has_frame[aid]:
+                    # chain_pair_iptm индексируется по (aid, k) или (k, aid)
+                    # Убедимся, что берем правильное значение
+                    if aid < k:
+                        vals.append(chain_pair_iptm[..., aid, k])
+                    else:
+                        vals.append(chain_pair_iptm[..., k, aid])
 
-    # Chain_pair_iptm_global
-    chain_pair_iptm_global = torch.zeros(size=batch_shape + (N_chain, N_chain)).to(
-        pae_prob.device
-    )
-    for aid_1 in range(N_chain):
+        if len(vals) > 0:
+            chain_iptm[..., aid] = torch.stack(vals, dim=-1).mean(dim=-1)
+        # Если у самой цепи aid нет frame, ее chain_iptm должен быть 0 или NaN
+        if not chain_has_frame[aid]:
+            chain_iptm[..., aid] = 0.0 # или torch.nan
+
+
+    chain_pair_iptm_global = torch.zeros(size=batch_shape + (N_chain, N_chain)).to(pae_prob.device)
+    for aid_1 in range(N_chain): # aid_1, aid_2 это 0..N_chain-1
         for aid_2 in range(N_chain):
             if aid_1 == aid_2:
                 continue
+            # chain_is_ligand теперь индексируется по remapped ID (0..N_chain-1)
             if chain_is_ligand[aid_1]:
-                chain_pair_iptm_global[:, aid_1, aid_2] = chain_iptm[:, aid_1]
+                chain_pair_iptm_global[..., aid_1, aid_2] = chain_iptm[..., aid_1]
             elif chain_is_ligand[aid_2]:
-                chain_pair_iptm_global[:, aid_1, aid_2] = chain_iptm[:, aid_2]
+                chain_pair_iptm_global[..., aid_1, aid_2] = chain_iptm[..., aid_2]
             else:
-                chain_pair_iptm_global[:, aid_1, aid_2] = (
-                    chain_iptm[:, aid_1] + chain_iptm[:, aid_2]
-                ) * 0.5
+                # Усредняем только если обе цепи имеют frame
+                if chain_has_frame[aid_1] and chain_has_frame[aid_2]:
+                    chain_pair_iptm_global[..., aid_1, aid_2] = (
+                        chain_iptm[..., aid_1] + chain_iptm[..., aid_2]
+                    ) * 0.5
+                elif chain_has_frame[aid_1]: # Если только aid_1 имеет frame
+                    chain_pair_iptm_global[..., aid_1, aid_2] = chain_iptm[..., aid_1]
+                elif chain_has_frame[aid_2]: # Если только aid_2 имеет frame
+                    chain_pair_iptm_global[..., aid_1, aid_2] = chain_iptm[..., aid_2]
+                else: # Если ни одна не имеет frame
+                    chain_pair_iptm_global[..., aid_1, aid_2] = 0.0 # или torch.nan
+
 
     return {
         "chain_ptm": chain_ptm,
@@ -577,7 +602,6 @@ def calculate_chain_based_ptm(
         "chain_pair_iptm": chain_pair_iptm,
         "chain_pair_iptm_global": chain_pair_iptm_global,
     }
-
 
 def calculate_chain_based_plddt(
     atom_plddt: torch.Tensor,
