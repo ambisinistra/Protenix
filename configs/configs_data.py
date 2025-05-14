@@ -123,7 +123,8 @@ data_configs = {
         "train_sample_weights": ListValue([1.0]),
         "sampler_type": "weighted",
     },
-    "test_sets": ListValue(["custom"]),
+    "test_sets": ListValue(["small_validation"]),
+    
     "custom":
     {
         "base_info": {
@@ -136,7 +137,7 @@ data_configs = {
         },
         **deepcopy(default_weighted_pdb_configs),
     },
-    
+
     "small_validation": {
         "base_info": {
         "mmcif_dir" : "/kaggle/input/prepare-val-data/rna-val-cif-files",
