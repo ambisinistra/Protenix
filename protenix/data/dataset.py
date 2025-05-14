@@ -302,14 +302,7 @@ class BaseSingleDataset(Dataset):
             except Exception as e:
                 error_message = f"{e} at idx {idx}:\n{traceback.format_exc()}"
                 self.save_error_data(idx, error_message)
-
-                if self.random_sample_if_failed:
-                    logger.exception(f"[skip data {idx}] {error_message}")
-                    # Random sample an index
-                    idx = random.choice(range(len(self.indices_list)))
-                    continue
-                else:
-                    raise Exception(e)
+                raise Exception(e)
         return data
 
     def _get_bioassembly_data(
