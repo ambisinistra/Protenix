@@ -136,6 +136,18 @@ data_configs = {
         },
         **deepcopy(default_weighted_pdb_configs),
     },
+    
+    "small_validation": {
+        "base_info": {
+        "mmcif_dir" : "/kaggle/input/prepare-val-data/rna-val-cif-files",
+        "bioassembly_dict_dir" : "/kaggle/input/prepare-val-data/rna-val-cif-files",
+        "indices_fpath" : "/kaggle/input/prepare-val-data/output_indices.csv",
+        "pdb_list" : "",
+        "random_sample_if_failed" : True,
+        "use_reference_chains_only" : False,
+        },
+        **deepcopy(default_weighted_pdb_configs),  
+    },
 
     "weightedPDB_before2109_wopb_nometalc_0925": {
         "base_info": {
