@@ -141,7 +141,7 @@ data_configs = {
     "small_validation": {
         "base_info": {
         "mmcif_dir" : "/kaggle/input/prepare-val-data/rna-val-cif-files",
-        "bioassembly_dict_dir" : "/kaggle/input/prepare-val-data/rna-val-cif-files",
+        "bioassembly_dict_dir" : "/kaggle/input/prepare-val-data/mmcif_bioassembly",
         "indices_fpath" : "/kaggle/input/prepare-val-data/output_indices.csv",
         "pdb_list" : "",
         "random_sample_if_failed" : True,
