@@ -628,7 +628,7 @@ def calculate_chain_based_plddt(
     asym_id = asym_id.long()
     asym_id_to_asym_mask = {aid.item(): asym_id == aid for aid in torch.unique(asym_id)}
     N_chain = len(asym_id_to_asym_mask)
-    assert N_chain == len(asym_id) #.max() + 1  # make sure it is from 0 to N_chain-1
+    assert N_chain == asym_id.max() + 1  # make sure it is from 0 to N_chain-1
 
     def _calculate_lddt_with_token_mask(token_mask):
         atom_mask = token_mask[atom_to_token_idx]
