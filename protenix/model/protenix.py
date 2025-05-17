@@ -702,10 +702,14 @@ class Protenix(nn.Module):
             log_dict.update({"time": time_tracker})
         elif mode == "eval":
             if label_dict is not None:
-                assert (
-                    label_dict["coordinate"].size()
-                    == label_full_dict["coordinate"].size()
-                )
+                try:
+                    assert (
+                        label_dict["coordinate"].size()
+                        == label_full_dict["coordinate"].size()
+                    )
+                except AssertionError:
+                    print (label_dict["coordinate"].size(), label_full_dict["coordinate"].size(), sep="\n\n")
+                    raise AssertionError
                 label_dict.update(label_full_dict)
 
             pred_dict, log_dict, time_tracker = self.main_inference_loop(
