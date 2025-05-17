@@ -366,7 +366,9 @@ class AF3Trainer(object):
         else:
             eval_id_from = self.configs.eval_id_from
 
-        for test_name, test_dl in self.test_dls.items()[eval_id_from:]:
+        all_items = list(self.test_dls.items())
+
+        for test_name, test_dl in all_items[eval_id_from:]:
             self.print(f"Testing on {test_name}")
             evaluated_pids = []
             total_batch_num = len(test_dl)
