@@ -376,6 +376,20 @@ class AF3Trainer(object):
                 batch = to_device(batch, self.device)
                 pid = batch["basic"]["pdb_id"]
 
+                # Проверка на наличие и равенство размеров координат в метках
+                # Эту проверку нужно делать до того, как данные попадут в Protenix.forward, где сработает assert
+                if batch.get("label_dict") and batch.get("label_full_dict"):
+                    if batch["label_dict"]["coordinate"].size() != batch["label_full_dict"]["coordinate"].size():
+                        print(f"Rank {DIST_WRAPPER.rank}: Пропуск PDB ID {pid} из-за несоответствия размеров координат в метках. "
+                           f"Размер label_dict['coordinate']: {batch['label_dict']['coordinate'].size()}, "
+                           f"Размер label_full_dict['coordinate']: {batch['label_full_dict']['coordinate'].size()}. "
+                           "Это вызвало бы ошибку утверждения (assert) в Protenix.forward на этапе оценки.")
+                        # Если используется `evaluated_pids` для синхронизации между процессами,
+                        # возможно, стоит добавить pid сюда, чтобы другие процессы знали о пропуске,
+                        # хотя текущая логика `dedup_ids` предназначена для избежания дублирования.
+                        # evaluated_pids.append(pid) # Раскомментируйте, если нужно отслеживать пропущенные таким образом.
+                        continue # Перейти к следующему PDB ID
+
                 if index + 1 == total_batch_num and DIST_WRAPPER.world_size > 1:
                     # Gather all pids across ranks for avoiding duplicated evaluations when drop_last = False
                     all_data_ids = DIST_WRAPPER.all_gather_object(evaluated_pids)
