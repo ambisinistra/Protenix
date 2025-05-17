@@ -366,13 +366,13 @@ class AF3Trainer(object):
         else:
             eval_id_from = self.configs.eval_id_from
 
-        all_items = list(self.test_dls.items())
-
-        for test_name, test_dl in tqdm(all_items[eval_id_from:]):
+        for test_name, test_dl in self.test_dls.items():
             self.print(f"Testing on {test_name}")
             evaluated_pids = []
             total_batch_num = len(test_dl)
             for index, batch in enumerate(tqdm(test_dl)):
+                if index < eval_id_from:
+                    continue
                 batch = to_device(batch, self.device)
                 pid = batch["basic"]["pdb_id"]
 
