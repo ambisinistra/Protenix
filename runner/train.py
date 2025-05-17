@@ -376,19 +376,19 @@ class AF3Trainer(object):
                 batch = to_device(batch, self.device)
                 pid = batch["basic"]["pdb_id"]
 
-                # Проверка на наличие и равенство размеров координат в метках
-                # Эту проверку нужно делать до того, как данные попадут в Protenix.forward, где сработает assert
+                # Check for the existence and equality of coordinate sizes in labels
+                # This check needs to be done before the data gets to Protenix.forward, where an assert would trigger
                 if batch.get("label_dict") and batch.get("label_full_dict"):
                     if batch["label_dict"]["coordinate"].size() != batch["label_full_dict"]["coordinate"].size():
-                        print(f"Rank {DIST_WRAPPER.rank}: Пропуск PDB ID {pid} из-за несоответствия размеров координат в метках. "
-                           f"Размер label_dict['coordinate']: {batch['label_dict']['coordinate'].size()}, "
-                           f"Размер label_full_dict['coordinate']: {batch['label_full_dict']['coordinate'].size()}. "
-                           "Это вызвало бы ошибку утверждения (assert) в Protenix.forward на этапе оценки.")
-                        # Если используется `evaluated_pids` для синхронизации между процессами,
-                        # возможно, стоит добавить pid сюда, чтобы другие процессы знали о пропуске,
-                        # хотя текущая логика `dedup_ids` предназначена для избежания дублирования.
-                        # evaluated_pids.append(pid) # Раскомментируйте, если нужно отслеживать пропущенные таким образом.
-                        continue # Перейти к следующему PDB ID
+                        print(f"Rank {DIST_WRAPPER.rank}: Skipping PDB ID {pid} due to mismatch in coordinate sizes in labels. "
+                           f"Size of label_dict['coordinate']: {batch['label_dict']['coordinate'].size()}, "
+                           f"Size of label_full_dict['coordinate']: {batch['label_full_dict']['coordinate'].size()}. "
+                           "This would have caused an assertion error in Protenix.forward during the evaluation stage.")
+                        # If `evaluated_pids` is used for synchronization between processes,
+                        # it might be worth adding pid here so other processes know about the skip,
+                        # although the current `dedup_ids` logic is intended to avoid duplication.
+                        # evaluated_pids.append(pid) # Uncomment if you need to track thusly skipped PDB IDs.
+                        continue # Proceed to the next PDB ID
 
                 if index + 1 == total_batch_num and DIST_WRAPPER.world_size > 1:
                     # Gather all pids across ranks for avoiding duplicated evaluations when drop_last = False
