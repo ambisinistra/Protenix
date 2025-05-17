@@ -361,7 +361,12 @@ class AF3Trainer(object):
         )
         self.model.eval()
 
-        for test_name, test_dl in self.test_dls.items():
+        if not hasattr(self.configs, 'eval_id_from'):
+            eval_id_from = 0
+        else:
+            eval_id_from = self.configs.eval_id_from
+
+        for test_name, test_dl in self.test_dls.items()[eval_id_from:]:
             self.print(f"Testing on {test_name}")
             evaluated_pids = []
             total_batch_num = len(test_dl)
